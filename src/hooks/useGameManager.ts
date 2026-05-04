@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { TauriService } from "../services/TauriService";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
@@ -21,7 +21,7 @@ const BASE_EDITIONS = [
     id: "legacy_evolved",
     name: "neoLegacy",
     desc: "Backporting newer title updates and Minigames back to LCE",
-    url: "https://github.com/pieeebot/neoLegacy/releases/download/v1.0.0b/neoLegacyWindows64.zip",
+    url: "https://github.com/pieeebot/neoLegacy/releases/download/latest/neoLegacyWindows64.zip",
     titleImage: "/images/minecraft_title_neoLegacy.png",
     supportsSlimSkins: true,
     logo: "/images/neoLegacy.png"
@@ -69,6 +69,23 @@ interface GameManagerProps {
   setCustomEditions: (editions: any[]) => void;
 }
 
+function compareVersions(v1: string, v2: string) {
+  const parts1 = v1.replace(/^v/, "").split(/[.-]/);
+  const parts2 = v2.replace(/^v/, "").split(/[.-]/);
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const p1 = parts1[i] || "0";
+    const p2 = parts2[i] || "0";
+    const n1 = parseInt(p1);
+    const n2 = parseInt(p2);
+    if (!isNaN(n1) && !isNaN(n2)) {
+      if (n1 !== n2) return n1 - n2;
+    } else {
+      if (p1 !== p2) return p1 > p2 ? 1 : -1;
+    }
+  }
+  return 0;
+}
+
 export function useGameManager({
   profile,
   setProfile,
@@ -87,6 +104,24 @@ export function useGameManager({
   const [gameUpdateMessage, setGameUpdateMessage] = useState<string | null>(null);
   const [steamSuccessMessage, setSteamSuccessMessage] = useState<string | null>(null);
   const [dynamicUrls, setDynamicUrls] = useState<Record<string, string>>({});
+  const [branches, setBranches] = useState<Record<string, string[]>>({});
+  const [selectedBranches, setSelectedBranches] = useState<Record<string, string>>({});
+  const branchesFetched = useRef<Set<string>>(new Set());
+  const initialBranchesSet = useRef(false);
+
+  useEffect(() => {
+    if (initialBranchesSet.current || !profile) return;
+    BASE_EDITIONS.forEach(e => {
+      if (profile.startsWith(e.id + "_")) {
+        const branch = profile.replace(e.id + "_", "");
+        setSelectedBranches(prev => ({ ...prev, [e.id]: branch }));
+      } else if (profile === e.id) {
+        setSelectedBranches(prev => ({ ...prev, [e.id]: "Stable" }));
+      }
+    });
+    initialBranchesSet.current = true;
+  }, [profile]);
+
   useEffect(() => {
     async function fetchLatestReleases() {
       try {
@@ -105,16 +140,84 @@ export function useGameManager({
     fetchLatestReleases();
   }, []);
 
-  const editions = useMemo(
-    () => [...BASE_EDITIONS.map(e => ({ ...e, url: dynamicUrls[e.id] || e.url })), ...customEditions],
-    [customEditions, dynamicUrls],
-  );
+  const fetchBranchesForEdition = useCallback(async (editionId: string, url: string) => {
+    if (branchesFetched.current.has(editionId)) return;
+    if (!url.includes("github.com")) return;
+    const parts = url.split("github.com/")[1].split("/");
+    const owner = parts[0];
+    const repo = parts[1];
+    try {
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases`);
+      if (response.ok) {
+        const data = await response.json();
+        let tags: string[] = data
+          .map((r: any) => r.tag_name)
+          .filter((t: string) => !t.toLowerCase().includes("server"));
+
+        const vTags = tags.filter(t => t.startsWith("v")).sort(compareVersions);
+        const bestVTag = vTags[vTags.length - 1];
+        if (!tags.includes("Stable")) tags.unshift("Stable");
+        if (bestVTag) {
+          setDynamicUrls(prev => ({ ...prev, [`${editionId}_Stable`]: bestVTag }));
+        }
+
+        setBranches(prev => ({ ...prev, [editionId]: tags }));
+        branchesFetched.current.add(editionId);
+      }
+    } catch (e) {
+      console.error(`Failed to fetch branches for ${editionId}:`, e);
+    }
+  }, []);
+
+  useEffect(() => {
+    BASE_EDITIONS.forEach(e => fetchBranchesForEdition(e.id, e.url));
+  }, [fetchBranchesForEdition]);
+
+  const cycleBranch = useCallback((editionId: string) => {
+    const available = branches[editionId] || ["Stable"];
+    if (available.length <= 1) return;
+    setSelectedBranches(prev => {
+      const current = prev[editionId] || available[0];
+      const currentIndex = available.indexOf(current);
+      const nextIndex = (currentIndex + 1) % available.length;
+      const nextBranch = available[nextIndex];
+      const oldInstanceId = current === "Stable" ? editionId : `${editionId}_${current}`;
+      const newInstanceId = nextBranch === "Stable" ? editionId : `${editionId}_${nextBranch}`;
+      if (profile === oldInstanceId) {
+        setProfile(newInstanceId);
+      }
+
+      return { ...prev, [editionId]: nextBranch };
+    });
+  }, [branches, profile, setProfile]);
+
+  const editions = useMemo(() => {
+    return [...BASE_EDITIONS.map(e => {
+      const availableBranches = branches[e.id] || ["Stable"];
+      const selectedBranch = selectedBranches[e.id] || availableBranches[0];
+      let url = dynamicUrls[e.id] || e.url;
+      const branchToUse = selectedBranch === "Stable" ? (dynamicUrls[`${e.id}_Stable`] || "latest") : selectedBranch;
+      if (e.url.includes("github.com")) {
+        const baseUrl = e.url.split("/releases/download/")[0];
+        const filename = e.url.split("/").pop();
+        url = `${baseUrl}/releases/download/${branchToUse}/${filename}`;
+      }
+
+      return {
+        ...e,
+        url,
+        branches: availableBranches,
+        selectedBranch,
+        instanceId: selectedBranch === "Stable" ? e.id : `${e.id}_${selectedBranch}`
+      };
+    }), ...customEditions.map(e => ({ ...e, instanceId: e.id }))];
+  }, [customEditions, dynamicUrls, branches, selectedBranches]);
 
   const checkInstalls = useCallback(async () => {
     const results = await Promise.all(
       editions.map(async (e) => {
-        const isInstalled = await TauriService.checkGameInstalled(e.id);
-        return isInstalled ? e.id : null;
+        const isInstalled = await TauriService.checkGameInstalled(e.instanceId);
+        return isInstalled ? e.instanceId : null;
       }),
     );
     setInstalls(results.filter((id): id is string => id !== null));
@@ -124,13 +227,13 @@ export function useGameManager({
   const checkForGameUpdates = useCallback(async () => {
     const checks = await Promise.all(
       editions.map(async (edition) => {
-        if (!installs.includes(edition.id)) return [edition.id, false] as const;
+        if (!installs.includes(edition.instanceId)) return [edition.instanceId, false] as const;
         try {
-          const isUpdate = await TauriService.checkGameUpdate(edition.id, edition.url);
-          return [edition.id, isUpdate] as const;
+          const isUpdate = await TauriService.checkGameUpdate(edition.instanceId, edition.url);
+          return [edition.instanceId, isUpdate] as const;
         } catch (e) {
           console.error(e);
-          return [edition.id, false] as const;
+          return [edition.instanceId, false] as const;
         }
       })
     );
@@ -195,7 +298,7 @@ export function useGameManager({
   const toggleInstall = useCallback(
     async (id: string) => {
       if (downloadingId) return;
-      const edition = editions.find((e) => e.id === id);
+      const edition = editions.find((e) => e.instanceId === id);
       if (!edition) return;
       setError(null);
       try {
@@ -338,5 +441,6 @@ export function useGameManager({
     setSteamSuccessMessage,
     updatesAvailable,
     addToSteam,
+    cycleBranch,
   };
 }

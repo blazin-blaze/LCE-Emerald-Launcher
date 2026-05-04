@@ -62,6 +62,7 @@ const VersionsView = memo(function VersionsView() {
     downloadProgress,
     updatesAvailable,
     addToSteam,
+    cycleBranch,
   } = useGame();
   const { isDayTime } = useConfig();
   const [focusIndex, setFocusIndex] = useState<number>(0);
@@ -73,6 +74,7 @@ const VersionsView = memo(function VersionsView() {
     row: number;
     btn: string;
   } | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deleteConfirmEdition, setDeleteConfirmEdition] = useState<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -117,62 +119,23 @@ const VersionsView = memo(function VersionsView() {
         e.preventDefault();
         if (focusIndex < editions.length) {
           const edition = editions[focusIndex];
-          const isInstalled = installedVersions.includes(edition.id);
-          const isCustom = edition.id.startsWith("custom_");
-          const isDownloading = downloadingId === edition.id;
-
+          const isInstalled = installedVersions.includes(edition.instanceId);
+          const isDownloading = downloadingId === edition.instanceId;
           if (focusBtn === 0) {
             if (isInstalled) {
               playPressSound();
-              setSelectedProfile(edition.id);
-            }
-          } else if (isInstalled) {
-            if (focusBtn === 1) {
-              if (!downloadingId) {
+              setOpenMenuId(openMenuId === edition.id ? null : edition.id);
+            } else {
+              if (!isDownloading && !downloadingId) {
                 playPressSound();
-                toggleInstall(edition.id);
-              }
-            } else if (focusBtn === 2) {
-              playPressSound();
-              TauriService.openInstanceFolder(edition.id);
-            } else if (focusBtn === 3) {
-              if (isCustom) {
-                playBackSound();
-                onDeleteEdition(edition.id);
-              } else {
-                playPressSound();
-                setDeleteConfirmEdition(edition);
-              }
-            } else if (focusBtn === 4) {
-              playPressSound();
-              const PANORAMA_PROFILES = ["legacy_evolved", "360revived"];
-              const panoId = PANORAMA_PROFILES.includes(edition.id)
-                ? edition.id
-                : "legacy_evolved";
-              const panoramaUrl = `/panorama/${panoId}_Panorama_Background_${isDayTime ? "Day" : "Night"}.png`;
-              addToSteam(
-                edition.id,
-                edition.name,
-                edition.titleImage,
-                panoramaUrl,
-              );
-            } else if (focusBtn === 5 && isCustom) {
-              playPressSound();
-              setEditingEdition(edition);
-              setIsImportModalOpen(true);
-            } else if (focusBtn === 6 && isCustom) {
-              playBackSound();
-              onDeleteEdition(edition.id);
-            }
-          } else {
-            if (focusBtn === 1) {
-              if (isDownloading) {
+                toggleInstall(edition.instanceId);
+              } else if (isDownloading) {
                 handleCancelDownload();
-              } else if (!downloadingId) {
-                playPressSound();
-                toggleInstall(edition.id);
               }
             }
+          } else if (focusBtn === 2) {
+            playPressSound();
+            cycleBranch(edition.id);
           }
         } else if (focusIndex === editions.length) {
           playPressSound();
@@ -218,11 +181,10 @@ const VersionsView = memo(function VersionsView() {
   }, [focusIndex]);
 
   const handleEditionClick = (edition: any, index: number) => {
-    const isInstalled = installedVersions.includes(edition.id);
-
+    const isInstalled = installedVersions.includes(edition.instanceId);
     if (isInstalled) {
       playPressSound();
-      setSelectedProfile(edition.id);
+      setSelectedProfile(edition.instanceId);
     }
     setFocusIndex(index);
   };
@@ -267,13 +229,13 @@ const VersionsView = memo(function VersionsView() {
         >
           <div className="flex flex-col gap-1">
             {editions.map((edition: any, i: number) => {
-              const isInstalled = installedVersions.includes(edition.id);
+              const isInstalled = installedVersions.includes(edition.instanceId);
               const hasAnyInstall = installedVersions.length > 0;
               const isSelected =
-                hasAnyInstall && selectedProfile === edition.id;
+                hasAnyInstall && selectedProfile === edition.instanceId;
               const isFocused = focusIndex === i;
               const isCustom = edition.id.startsWith("custom_");
-              const isDownloading = downloadingId === edition.id;
+              const isDownloading = downloadingId === edition.instanceId;
               const isComingSoon = edition.comingSoon;
 
               return (
@@ -282,7 +244,7 @@ const VersionsView = memo(function VersionsView() {
                   data-index={i}
                   className={`w-[calc(100%-16px)] mx-2 flex items-center gap-3 p-2 rounded-sm ${isSelected && !isComingSoon ? "bg-[#404040]/50" : ""
                     } ${isFocused && !isComingSoon ? "ring-2 ring-white" : ""} ${isComingSoon ? "opacity-50 cursor-not-allowed" : ""
-                    }`}
+                    } relative ${openMenuId === edition.id ? "z-50" : "z-0"}`}
                   onMouseEnter={() => !isComingSoon && setFocusIndex(i)}
                 >
                   <div className="w-6 flex items-center justify-center flex-shrink-0">
@@ -314,12 +276,11 @@ const VersionsView = memo(function VersionsView() {
                     )}
                   </div>
 
-                  <button
+                  <div
                     onClick={() =>
                       !isComingSoon && handleEditionClick(edition, i)
                     }
-                    disabled={isComingSoon}
-                    className={`flex-1 text-left min-w-0 outline-none rounded ${focusIndex === i && focusBtn === 0 && !isComingSoon
+                    className={`flex-1 text-left min-w-0 outline-none rounded cursor-pointer ${focusIndex === i && focusBtn === 0 && !isComingSoon
                       ? "ring-2 ring-white"
                       : ""
                       } ${isComingSoon ? "cursor-not-allowed" : ""}`}
@@ -366,312 +327,162 @@ const VersionsView = memo(function VersionsView() {
                     >
                       {edition.desc}
                     </p>
-                  </button>
+                  </div>
 
-                  <div className="flex items-center gap-1 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0 relative">
                     {!isInstalled ? (
-                      isDownloading ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!isDownloading && !downloadingId) {
+                            toggleInstall(edition.instanceId);
+                          } else if (isDownloading) {
                             handleCancelDownload();
-                          }}
-                          onMouseEnter={() =>
-                            setHoveredBtn({ row: i, btn: "cancel" })
                           }
-                          onMouseLeave={() => setHoveredBtn(null)}
-                          className="w-8 h-8 flex items-center justify-center text-red-600"
-                          style={{
-                            backgroundImage:
-                              (hoveredBtn?.row === i &&
-                                hoveredBtn?.btn === "cancel") ||
-                                (focusIndex === i && focusBtn === 1)
-                                ? "url('/images/Button_Square_Highlighted.png')"
-                                : "url('/images/Button_Square.png')",
-                            backgroundSize: "100% 100%",
-                            imageRendering: "pixelated",
-                          }}
-                        >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                            strokeLinecap="square"
-                          >
-                            <path d="M18 6L6 18M6 6l12 12" />
-                          </svg>
-                        </button>
-                      ) : edition.comingSoon ? (
-                        <div className="w-8 h-8" />
-                      ) : (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!downloadingId) toggleInstall(edition.id);
-                          }}
-                          onMouseEnter={() =>
-                            setHoveredBtn({ row: i, btn: "download" })
-                          }
-                          onMouseLeave={() => setHoveredBtn(null)}
-                          className={`w-8 h-8 flex items-center justify-center ${downloadingId ? "text-gray-400 cursor-not-allowed" : "text-[#3a3a3a]"}`}
-                          style={{
-                            backgroundImage:
-                              (hoveredBtn?.row === i &&
-                                hoveredBtn?.btn === "download") ||
-                                (focusIndex === i && focusBtn === 1)
-                                ? "url('/images/Button_Square_Highlighted.png')"
-                                : "url('/images/Button_Square.png')",
-                            backgroundSize: "100% 100%",
-                            imageRendering: "pixelated",
-                            opacity: downloadingId ? 0.5 : 1,
-                          }}
-                          disabled={!!downloadingId}
-                        >
-                          <img
-                            src="/images/Download_Icon.png"
-                            alt="Download"
-                            className="w-6 h-6 object-contain"
-                            style={{ imageRendering: "pixelated" }}
-                          />
-                        </button>
-                      )
+                        }}
+                        onMouseEnter={() => setHoveredBtn({ row: i, btn: "main" })}
+                        onMouseLeave={() => setHoveredBtn(null)}
+                        className={`w-9 h-9 flex items-center justify-center ${(isDownloading || (!!downloadingId && !isInstalled)) ? "opacity-50" : ""
+                          }`}
+                        style={{
+                          backgroundImage: (hoveredBtn?.row === i && hoveredBtn?.btn === "main") || (focusIndex === i && focusBtn === 0)
+                            ? "url('/images/Button_Square_Highlighted.png')"
+                            : "url('/images/Button_Square.png')",
+                          backgroundSize: "100% 100%",
+                          imageRendering: "pixelated",
+                        }}
+                      >
+                        <img
+                          src={isDownloading ? "/images/Trash_Bin_Icon.png" : "/images/Download_Icon.png"}
+                          alt=""
+                          className="w-5 h-5 object-contain"
+                          style={{ imageRendering: "pixelated", filter: isDownloading ? "hue-rotate(300deg)" : "none" }}
+                        />
+                      </button>
                     ) : (
-                      <>
-                        {isDownloading ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          playPressSound();
+                          setOpenMenuId(openMenuId === edition.id ? null : edition.id);
+                        }}
+                        onMouseEnter={() => setHoveredBtn({ row: i, btn: "menu" })}
+                        onMouseLeave={() => setHoveredBtn(null)}
+                        className="w-9 h-9 flex flex-col items-center justify-center gap-1 transition-colors relative"
+                        style={{
+                          backgroundImage: (hoveredBtn?.row === i && hoveredBtn?.btn === "menu") || (focusIndex === i && (focusBtn === 0 || focusBtn === 1))
+                            ? "url('/images/Button_Square_Highlighted.png')"
+                            : "url('/images/Button_Square.png')",
+                          backgroundSize: "100% 100%",
+                          imageRendering: "pixelated",
+                          filter: updatesAvailable?.[edition.instanceId] ? "drop-shadow(0 0 4px rgba(255,255,0,0.8))" : "none"
+                        }}
+                      >
+                        <div className={`w-1.5 h-1.5 ${updatesAvailable?.[edition.instanceId] ? "bg-[#ffff55]" : "bg-white"}`} />
+                        <div className={`w-1.5 h-1.5 ${updatesAvailable?.[edition.instanceId] ? "bg-[#ffff55]" : "bg-white"}`} />
+                        <div className={`w-1.5 h-1.5 ${updatesAvailable?.[edition.instanceId] ? "bg-[#ffff55]" : "bg-white"}`} />
+                      </button>
+                    )}
+
+                    {openMenuId === edition.id && (
+                      <div
+                        className="absolute right-0 top-11 w-48 bg-[#1a1a1a] border-2 border-[#555] z-[100] shadow-2xl p-0.5 animate-in fade-in zoom-in duration-75"
+                        style={{
+                          imageRendering: "pixelated"
+                        }}
+                      >
+                        {updatesAvailable?.[edition.instanceId] && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleCancelDownload();
+                              playPressSound();
+                              toggleInstall(edition.instanceId);
+                              setOpenMenuId(null);
                             }}
-                            onMouseEnter={() =>
-                              setHoveredBtn({ row: i, btn: "cancel" })
-                            }
-                            onMouseLeave={() => setHoveredBtn(null)}
-                            className="w-8 h-8 flex items-center justify-center text-red-600"
-                            style={{
-                              backgroundImage:
-                                (hoveredBtn?.row === i &&
-                                  hoveredBtn?.btn === "cancel") ||
-                                  (focusIndex === i && focusBtn === 1)
-                                  ? "url('/images/Button_Square_Highlighted.png')"
-                                  : "url('/images/Button_Square.png')",
-                              backgroundSize: "100% 100%",
-                              imageRendering: "pixelated",
-                            }}
+                            className="w-full text-left px-3 py-1.5 text-xs text-[#ffff55] hover:text-white hover:bg-[#ffff55]/20 flex items-center gap-2 group transition-colors mc-text-shadow font-bold border-b border-white/5 mb-1"
                           >
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="3"
-                              strokeLinecap="square"
-                            >
-                              <path d="M18 6L6 18M6 6l12 12" />
-                            </svg>
+                            <img src="/images/Download_Icon.png" alt="" className="w-3 h-3 object-contain" style={{ imageRendering: "pixelated" }} />
+                            Update Available!
                           </button>
-                        ) : (
-                          <>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!downloadingId) toggleInstall(edition.id);
-                              }}
-                              onMouseEnter={() =>
-                                setHoveredBtn({ row: i, btn: "update" })
-                              }
-                              onMouseLeave={() => setHoveredBtn(null)}
-                              className={`w-8 h-8 flex items-center justify-center ${downloadingId ? "text-gray-400 cursor-not-allowed" : "text-[#3a3a3a]"}`}
-                              style={{
-                                backgroundImage:
-                                  (hoveredBtn?.row === i &&
-                                    hoveredBtn?.btn === "update") ||
-                                    (focusIndex === i && focusBtn === 1)
-                                    ? "url('/images/Button_Square_Highlighted.png')"
-                                    : "url('/images/Button_Square.png')",
-                                backgroundSize: "100% 100%",
-                                imageRendering: "pixelated",
-                                opacity: downloadingId ? 0.5 : 1,
-                              }}
-                              disabled={!!downloadingId}
-                            >
-                              <img
-                                src="/images/Update_Icon.png"
-                                alt="Update"
-                                className="w-6 h-6 object-contain"
-                                style={{
-                                  imageRendering: "pixelated",
-                                  filter: updatesAvailable?.[edition.id] ? "brightness(1.5) sepia(1) saturate(5) hue-rotate(15deg) drop-shadow(0 0 4px rgba(255,255,0,0.8))" : "none"
-                                }}
-                              />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                playPressSound();
-                                TauriService.openInstanceFolder(edition.id);
-                              }}
-                              onMouseEnter={() =>
-                                setHoveredBtn({ row: i, btn: "folder" })
-                              }
-                              onMouseLeave={() => setHoveredBtn(null)}
-                              className="w-8 h-8 flex items-center justify-center text-[#3a3a3a]"
-                              style={{
-                                backgroundImage:
-                                  (hoveredBtn?.row === i &&
-                                    hoveredBtn?.btn === "folder") ||
-                                    (focusIndex === i && focusBtn === 2)
-                                    ? "url('/images/Button_Square_Highlighted.png')"
-                                    : "url('/images/Button_Square.png')",
-                                backgroundSize: "100% 100%",
-                                imageRendering: "pixelated",
-                              }}
-                            >
-                              <img
-                                src="/images/Folder_Icon.png"
-                                alt="Folder"
-                                className="w-6 h-6 object-contain"
-                                style={{ imageRendering: "pixelated" }}
-                              />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                playBackSound();
-                                setDeleteConfirmEdition(edition);
-                              }}
-                              onMouseEnter={() =>
-                                setHoveredBtn({ row: i, btn: "delete" })
-                              }
-                              onMouseLeave={() => setHoveredBtn(null)}
-                              className="w-8 h-8 flex items-center justify-center text-[#3a3a3a]"
-                              style={{
-                                backgroundImage:
-                                  (hoveredBtn?.row === i &&
-                                    hoveredBtn?.btn === "delete") ||
-                                    (focusIndex === i && focusBtn === 3)
-                                    ? "url('/images/Button_Square_Highlighted.png')"
-                                    : "url('/images/Button_Square.png')",
-                                backgroundSize: "100% 100%",
-                                imageRendering: "pixelated",
-                              }}
-                            >
-                              <img
-                                src="/images/Trash_Bin_Icon.png"
-                                alt="Delete"
-                                className="w-6 h-6 object-contain"
-                                style={{ imageRendering: "pixelated" }}
-                              />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                playPressSound();
-                                const PANORAMA_PROFILES = ['legacy_evolved', '360revived'];
-                                const panoId = PANORAMA_PROFILES.includes(edition.id) ? edition.id : 'legacy_evolved';
-                                const panoramaUrl = `/panorama/${panoId}_Panorama_Background_${isDayTime ? 'Day' : 'Night'}.png`;
-                                addToSteam(edition.id, edition.name, edition.titleImage, panoramaUrl);
-                              }}
-                              onMouseEnter={() =>
-                                setHoveredBtn({ row: i, btn: "steam" })
-                              }
-                              onMouseLeave={() => setHoveredBtn(null)}
-                              className="w-8 h-8 flex items-center justify-center text-[#3a3a3a]"
-                              style={{
-                                backgroundImage:
-                                  (hoveredBtn?.row === i &&
-                                    hoveredBtn?.btn === "steam") ||
-                                    (focusIndex === i && focusBtn === 4)
-                                    ? "url('/images/Button_Square_Highlighted.png')"
-                                    : "url('/images/Button_Square.png')",
-                                backgroundSize: "100% 100%",
-                                imageRendering: "pixelated",
-                              }}
-                            >
-                              <img src="/images/steam.png" alt="Add To Steam" className="w-6 h-6 object-contain" style={{ imageRendering: "pixelated", filter: "brightness(0) invert(1)" }} />
-                            </button>
-                            {isCustom && (
-                              <>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    playPressSound();
-                                    setEditingEdition(edition);
-                                    setIsImportModalOpen(true);
-                                  }}
-                                  onMouseEnter={() =>
-                                    setHoveredBtn({ row: i, btn: "edit" })
-                                  }
-                                  onMouseLeave={() => setHoveredBtn(null)}
-                                  className="w-8 h-8 flex items-center justify-center text-[#3a3a3a]"
-                                  style={{
-                                    backgroundImage:
-                                      (hoveredBtn?.row === i &&
-                                        hoveredBtn?.btn === "edit") ||
-                                        (focusIndex === i && focusBtn === 5)
-                                        ? "url('/images/Button_Square_Highlighted.png')"
-                                        : "url('/images/Button_Square.png')",
-                                    backgroundSize: "100% 100%",
-                                    imageRendering: "pixelated",
-                                  }}
-                                >
-                                  <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2.5"
-                                    strokeLinecap="square"
-                                  >
-                                    <path d="M12 20h9" />
-                                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    playBackSound();
-                                    onDeleteEdition(edition.id);
-                                  }}
-                                  onMouseEnter={() =>
-                                    setHoveredBtn({ row: i, btn: "delete_custom" })
-                                  }
-                                  onMouseLeave={() => setHoveredBtn(null)}
-                                  className="w-8 h-8 flex items-center justify-center text-red-600"
-                                  style={{
-                                    backgroundImage:
-                                      (hoveredBtn?.row === i &&
-                                        hoveredBtn?.btn === "delete_custom") ||
-                                        (focusIndex === i && focusBtn === 6)
-                                        ? "url('/images/Button_Square_Highlighted.png')"
-                                        : "url('/images/Button_Square.png')",
-                                    backgroundSize: "100% 100%",
-                                    imageRendering: "pixelated",
-                                  }}
-                                >
-                                  <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2.5"
-                                    strokeLinecap="square"
-                                  >
-                                    <polyline points="3 6 5 6 21 6" />
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                  </svg>
-                                </button>
-                              </>
-                            )}
-                          </>
                         )}
-                      </>
+                        {Array.isArray(edition.branches) && edition.branches.length > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              playPressSound();
+                              cycleBranch(edition.id);
+                            }}
+                            className="w-full text-left px-3 py-1.5 text-[10px] text-white mc-text-shadow hover:bg-white/10 flex items-center justify-between group transition-colors"
+                          >
+                            <span className="text-[#AAAAAA] group-hover:text-white font-bold">
+                              Channel
+                            </span>
+                            <span className="text-[#ffff55] font-bold">
+                              {edition.selectedBranch ?? "Latest"}
+                            </span>
+                          </button>
+                        )}
+                        <div className="h-[1px] bg-white/5 my-0.5 mx-1" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            playPressSound();
+                            TauriService.openInstanceFolder(edition.instanceId);
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs text-[#dddddd] hover:text-white hover:bg-white/10 flex items-center gap-2 transition-colors mc-text-shadow"
+                        >
+                          <img src="/images/Folder_Icon.png" alt="" className="w-3.5 h-3.5 object-contain" style={{ imageRendering: "pixelated" }} />
+                          Open Folder
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            playPressSound();
+                            const PANORAMA_PROFILES = ['legacy_evolved', '360revived'];
+                            const panoId = PANORAMA_PROFILES.includes(edition.id) ? edition.id : 'legacy_evolved';
+                            const panoramaUrl = `/panorama/${panoId}_Panorama_Background_${isDayTime ? 'Day' : 'Night'}.png`;
+                            addToSteam(edition.instanceId, edition.name, edition.titleImage, panoramaUrl);
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs text-[#dddddd] hover:text-white hover:bg-white/10 flex items-center gap-2 transition-colors mc-text-shadow"
+                        >
+                          <img src="/images/steam.png" alt="" className="w-3.5 h-3.5 object-contain invert brightness-0" style={{ imageRendering: "pixelated" }} />
+                          Add to Steam
+                        </button>
+                        {isCustom ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              playPressSound();
+                              setEditingEdition(edition);
+                              setIsImportModalOpen(true);
+                              setOpenMenuId(null);
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs text-[#aaaaaa] hover:text-white hover:bg-white/10 flex items-center gap-2 transition-colors mc-text-shadow"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                            Edit Custom
+                          </button>
+                        ) : null}
+                        <div className="h-[2px] bg-[#555] my-0.5 mx-1" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            playBackSound();
+                            if (isCustom) {
+                              onDeleteEdition(edition.id);
+                            } else {
+                              setDeleteConfirmEdition(edition);
+                            }
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10 flex items-center gap-2 transition-colors mc-text-shadow font-bold"
+                        >
+                          <img src="/images/Trash_Bin_Icon.png" alt="" className="w-3.5 h-3.5 object-contain" style={{ imageRendering: "pixelated" }} />
+                          {isCustom ? "Remove Custom" : "Uninstall"}
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
