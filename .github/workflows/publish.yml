@@ -84,7 +84,7 @@ jobs:
                    --install-location /Applications \
                    --scripts pkg_temp/scripts \
                    --identifier "com.emerald.legacy" \
-                   --version "1.0.0" \
+                   --version "1.2.1" \
                    "Emerald-Legacy-Launcher.pkg"
           mv "Emerald-Legacy-Launcher.pkg" "$MACOS_BUNDLE_DIR/"
 
