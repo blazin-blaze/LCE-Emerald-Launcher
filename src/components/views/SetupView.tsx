@@ -424,12 +424,22 @@ const SetupView: React.FC<SetupViewProps> = ({ onComplete }) => {
                         <span className={`tracking-widest uppercase text-lg mc-text-shadow ${focusIndex === 0 ? "text-[#FFFF55]" : "text-white/80"}`}>
                           Click effects
                         </span>
-                        <img
-                          src={enableVfx ? "/images/Toggle_Switch_On.png" : "/images/Toggle_Switch_Off.png"}
-                          alt={enableVfx ? "ON" : "OFF"}
-                          className="w-12 h-6 object-contain shrink-0"
-                          style={{ imageRendering: "pixelated" }}
-                        />
+                        <div className="relative w-6 h-6 shrink-0">
+                          <img
+                            src={focusIndex === 0 ? "/images/checkbox_highlighted.png" : "/images/checkbox.png"}
+                            alt="checkbox"
+                            className="w-full h-full object-contain"
+                            style={{ imageRendering: "pixelated" }}
+                          />
+                          {enableVfx && (
+                            <img
+                              src="/images/check.png"
+                              alt="checked"
+                              className="absolute inset-0 w-full h-full object-contain"
+                              style={{ imageRendering: "pixelated" }}
+                            />
+                          )}
+                        </div>
                       </button>
                       <button
                         onClick={() => { playPressSound(); setEnableDiscordRPC(!enableDiscordRPC); }}
@@ -440,12 +450,22 @@ const SetupView: React.FC<SetupViewProps> = ({ onComplete }) => {
                         <span className={`tracking-widest uppercase text-lg mc-text-shadow ${focusIndex === 1 ? "text-[#FFFF55]" : "text-white/80"}`}>
                           Discord RPC
                         </span>
-                        <img
-                          src={enableDiscordRPC ? "/images/Toggle_Switch_On.png" : "/images/Toggle_Switch_Off.png"}
-                          alt={enableDiscordRPC ? "ON" : "OFF"}
-                          className="w-12 h-6 object-contain shrink-0"
-                          style={{ imageRendering: "pixelated" }}
-                        />
+                        <div className="relative w-6 h-6 shrink-0">
+                          <img
+                            src={focusIndex === 1 ? "/images/checkbox_highlighted.png" : "/images/checkbox.png"}
+                            alt="checkbox"
+                            className="w-full h-full object-contain"
+                            style={{ imageRendering: "pixelated" }}
+                          />
+                          {enableDiscordRPC && (
+                            <img
+                              src="/images/check.png"
+                              alt="checked"
+                              className="absolute inset-0 w-full h-full object-contain"
+                              style={{ imageRendering: "pixelated" }}
+                            />
+                          )}
+                        </div>
                       </button>
 
                       <p className="text-xs text-white/40 text-center uppercase tracking-widest mt-2">You can change these later in settings</p>
@@ -484,21 +504,41 @@ const SetupView: React.FC<SetupViewProps> = ({ onComplete }) => {
                         )}
                         <div className="flex items-center justify-between px-4 h-10 border-b border-white/10">
                           <span className="text-white/60 text-sm uppercase tracking-widest">Click Effects</span>
-                          <img
-                            src={enableVfx ? "/images/Toggle_Switch_On.png" : "/images/Toggle_Switch_Off.png"}
-                            alt={enableVfx ? "ON" : "OFF"}
-                            className="w-10 h-5 object-contain"
-                            style={{ imageRendering: "pixelated" }}
-                          />
+                          <div className="relative w-5 h-5">
+                            <img
+                              src="/images/checkbox.png"
+                              alt="checkbox"
+                              className="w-full h-full object-contain"
+                              style={{ imageRendering: "pixelated" }}
+                            />
+                            {enableVfx && (
+                              <img
+                                src="/images/check.png"
+                                alt="checked"
+                                className="absolute inset-0 w-full h-full object-contain"
+                                style={{ imageRendering: "pixelated" }}
+                              />
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center justify-between px-4 h-10">
                           <span className="text-white/60 text-sm uppercase tracking-widest">Discord RPC</span>
-                          <img
-                            src={enableDiscordRPC ? "/images/Toggle_Switch_On.png" : "/images/Toggle_Switch_Off.png"}
-                            alt={enableDiscordRPC ? "ON" : "OFF"}
-                            className="w-10 h-5 object-contain"
-                            style={{ imageRendering: "pixelated" }}
-                          />
+                          <div className="relative w-5 h-5">
+                            <img
+                              src="/images/checkbox.png"
+                              alt="checkbox"
+                              className="w-full h-full object-contain"
+                              style={{ imageRendering: "pixelated" }}
+                            />
+                            {enableDiscordRPC && (
+                              <img
+                                src="/images/check.png"
+                                alt="checked"
+                                className="absolute inset-0 w-full h-full object-contain"
+                                style={{ imageRendering: "pixelated" }}
+                              />
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
