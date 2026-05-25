@@ -4,14 +4,12 @@ mod config;
 mod util;
 mod platform;
 mod networking;
-pub mod lce_bridge;
 mod workshop_server;
 mod commands;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tauri::Manager;
-use commands::bridge as bridge_cmds;
 use commands::config as config_cmds;
 use commands::download;
 use commands::file_dialogs;
@@ -66,9 +64,6 @@ pub fn run() {
             workshop::workshop_install,
             workshop::workshop_uninstall,
             workshop::workshop_list_installed,
-            bridge_cmds::bridge_start,
-            bridge_cmds::bridge_stop,
-            bridge_cmds::bridge_status,
             skin::get_screenshots,
             skin::delete_screenshot,
             skin::open_screenshot_folder,
