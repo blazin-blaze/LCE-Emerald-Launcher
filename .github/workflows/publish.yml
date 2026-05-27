@@ -60,33 +60,6 @@ jobs:
 
       - name: install frontend dependencies
         run: pnpm install
-      - name: Create PKG with post-install script
-        if: matrix.platform == 'macos-latest'
-        run: |
-          # Create temporary directory for PKG creation
-          mkdir -p pkg_temp/scripts
-          cp scripts/postinstall.sh pkg_temp/scripts/
-
-          # Build the app first
-          pnpm tauri build -- ${{ matrix.args }}
-
-          # Find the built app
-          APP_PATH=$(find src-tauri/target/release/bundle/macos/ -name "*.app" | head -1)
-          APP_NAME=$(basename "$APP_PATH")
-
-          # Create PKG with post-install script
-          pkgbuild --root "$APP_PATH/.." \
-                   --install-location /Applications \
-                   --scripts pkg_temp/scripts \
-                   --identifier "com.emerald.legacy" \
-                   --version "1.3.0" \
-                   --install-location "/Applications" \
-                   --root "$APP_PATH" \
-                   "Emerald-Legacy-Launcher.pkg"
-
-          # Move PKG to bundle directory
-          mkdir -p src-tauri/target/release/bundle/macos/
-          mv "Emerald-Legacy-Launcher.pkg" src-tauri/target/release/bundle/macos/
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
