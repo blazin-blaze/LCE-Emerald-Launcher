@@ -299,31 +299,29 @@ const VersionsView = memo(function VersionsView() {
                   onMouseEnter={() => !isComingSoon && setFocusIndex(i)}
                 >
                   <div className="w-6 flex items-center justify-center flex-shrink-0">
-                    {isComingSoon ? (
-                      <img
-                        src="/images/wool_8.png"
-                        alt="Coming Soon"
-                        className="w-4 h-4 object-contain"
-                        style={{ imageRendering: "pixelated" }}
-                      />
-                    ) : isDownloading ? (
+                    {isDownloading ? (
                       <span className="text-xs text-gray-400 font-bold">
                         {Math.floor(downloadProgress || 0)}%
                       </span>
-                    ) : isInstalled ? (
-                      <img
-                        src="/images/wool_5.png"
-                        alt="Installed"
-                        className="w-4 h-4 object-contain"
-                        style={{ imageRendering: "pixelated" }}
-                      />
+                    ) : edition.logo ? (
+                      edition.logo.startsWith("http") ||
+                      edition.logo.startsWith("/images") ? (
+                        <img
+                          src={edition.logo}
+                          alt=""
+                          className={`w-6 h-6 object-contain ${isComingSoon ? "opacity-40 grayscale" : ""}`}
+                          style={{ imageRendering: "pixelated" }}
+                        />
+                      ) : (
+                        <ScreenshotImage
+                          path={edition.logo}
+                          alt=""
+                          className={`w-6 h-6 object-contain ${isComingSoon ? "opacity-40 grayscale" : ""}`}
+                          style={{ imageRendering: "pixelated" }}
+                        />
+                      )
                     ) : (
-                      <img
-                        src="/images/wool_14.png"
-                        alt="Not installed"
-                        className="w-4 h-4 object-contain"
-                        style={{ imageRendering: "pixelated" }}
-                      />
+                      <div className="w-6 h-6 bg-gray-600/30 rounded-sm" />
                     )}
                   </div>
 
@@ -338,23 +336,6 @@ const VersionsView = memo(function VersionsView() {
                     } ${isComingSoon ? "cursor-not-allowed" : ""}`}
                   >
                     <div className="flex items-center gap-2">
-                      {edition.logo &&
-                        (edition.logo.startsWith("http") ||
-                        edition.logo.startsWith("/images") ? (
-                          <img
-                            src={edition.logo}
-                            alt=""
-                            className="w-5 h-5 object-contain flex-shrink-0"
-                            style={{ imageRendering: "pixelated" }}
-                          />
-                        ) : (
-                          <ScreenshotImage
-                            path={edition.logo}
-                            alt=""
-                            className="w-5 h-5 object-contain flex-shrink-0"
-                            style={{ imageRendering: "pixelated" }}
-                          />
-                        ))}
                       <span
                         className={`text-xl tracking-wide truncate ${
                           isSelected ? "text-white" : "text-black"
