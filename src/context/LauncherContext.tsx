@@ -65,7 +65,7 @@ export function LauncherProvider({ children }: { children: React.ReactNode }) {
     configRaw.rpcEnabled, configRaw.musicVol, configRaw.sfxVol, configRaw.isDayTime,
     configRaw.profile, configRaw.linuxRunner, configRaw.perfBoost, configRaw.customEditions,
     configRaw.legacyMode, configRaw.animationsEnabled, configRaw.mangohudEnabled,
-    configRaw.extraLaunchArgs, configRaw.launchPrefix, configRaw.launchEnvVars
+    configRaw.extraLaunchArgs, configRaw.launchPrefix, configRaw.launchEnvVars, configRaw.startFullscreen
   ]);
 
   const game = useMemo(() => gameRaw, [
@@ -134,6 +134,7 @@ export function LauncherProvider({ children }: { children: React.ReactNode }) {
         extraLaunchArgs: config.extraLaunchArgs,
         launchPrefix: config.launchPrefix,
         launchEnvVars: config.launchEnvVars,
+				startFullscreen: config.startFullscreen
       }).catch(console.error);
     }
   }, [
@@ -142,26 +143,22 @@ export function LauncherProvider({ children }: { children: React.ReactNode }) {
     config.vfxEnabled, config.animationsEnabled,
     config.rpcEnabled, config.musicVol, config.sfxVol, config.legacyMode,
     config.mangohudEnabled, config.extraLaunchArgs, config.launchPrefix,
-    config.launchEnvVars, config.isLoaded
+    config.launchEnvVars, config.isLoaded, config.startFullscreen
   ]);
 
   useEffect(() => {
     const setupVisibilityDetection = async () => {
       try {
         const { listen } = await import("@tauri-apps/api/event");
-
         const unlistenClose = await listen("tauri://close-requested", () => {
-          console.log("Window close requested - hiding music");
           setIsWindowVisible(false);
         });
 
         const unlistenShow = await listen("tauri://window-shown", () => {
-          console.log("Window shown - resuming music");
           setIsWindowVisible(true);
         });
 
         const unlistenFocus = await listen("tauri://focus", () => {
-          console.log("Window focused - resuming music");
           setIsWindowVisible(true);
         });
 

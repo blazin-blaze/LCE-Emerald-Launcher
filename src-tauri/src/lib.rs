@@ -99,7 +99,7 @@ pub fn run() {
         .setup(|app| {
             let app_handle = app.handle().clone();
             let config = config::load_config_raw(app_handle.clone());
-            if config.start_fullscreen.unwrap_or(true) {
+            if config.start_fullscreen.unwrap_or(false) {
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.set_fullscreen(true);
                 }
